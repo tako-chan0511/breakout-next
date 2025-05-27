@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "clean": "npx rimraf out",
     "dev": "next dev --turbopack",
-    "build": "next build ",
-    "predeploy": "powershell -Command \"New-Item -Path out/.nojekyll -ItemType File -Force\"",
-    "deploy":    "npm run build && gh-pages -d out  --dotfiles",
+    "build": "npm run clean && next build ",
+    "deploy":  "npm run build && echo > out/.nojekyll && gh-pages -d out --dotfiles",
     "start": "next start",
     "lint": "next lint"
   },
@@ -24,6 +24,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
     "gh-pages": "^6.3.0",
+    "rimraf": "^6.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
