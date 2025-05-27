@@ -1,4 +1,11 @@
-import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+// src/components/GameCanvas.tsx
+"use client";
+import React, {
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import styles from '@/styles/GameCanvas.module.css';
 import type { GameCanvasHandle } from './GameCanvasHandle';
 
@@ -37,13 +44,13 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
   ) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-    // Canvas dimensions & constants
+    // ─── Canvas dimensions & constants ──────────────────────────────────
     const width = 480;
     const height = 320;
     const ballRadius = 10;
     const paddleHeight = 10;
 
-    // Mutable game state refs
+    // ─── Mutable game state refs ────────────────────────────────────────
     const ballX = useRef(width / 2);
     const ballY = useRef(height - paddleHeight - ballRadius);
     const dx = useRef(2);
@@ -55,7 +62,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     const score = useRef(0);
     const level = useRef(1);
 
-    // Brick settings
+    // ─── Brick settings ─────────────────────────────────────────────────
     const brickRowCount = 3;
     const brickColumnCount = 5;
     const brickWidth = 75;
@@ -65,7 +72,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     const brickOffsetLeft = 30;
     const bricks = useRef<{ x: number; y: number; status: number }[][]>([]);
 
-    // Initialize bricks on mount
+    // 初期ブロック配置
     useEffect(() => {
       bricks.current = [];
       for (let c = 0; c < brickColumnCount; c++) {
@@ -76,7 +83,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       }
     }, []);
 
-    // Expose resetBall to parent
+    // ─── Expose resetBall to parent ─────────────────────────────────────
     useImperativeHandle(ref, () => ({
       resetBall() {
         ballX.current = width / 2;
@@ -87,12 +94,14 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       },
     }));
 
+    // ─── Main effect: game loop & input handlers ───────────────────────
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      // ゲーム初期化
       function initGame() {
         ballX.current = width / 2;
         ballY.current = height - paddleHeight - ballRadius;
@@ -111,7 +120,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       }
       initGame();
 
-      // Input state
+      // 入力状態
       const leftPressed = { value: false };
       const rightPressed = { value: false };
 
@@ -146,7 +155,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         lastTouchX = null;
       };
 
-      // Drawing helper functions
+      // ─── 描画関数 ────────────────────────────────────────────────
       const clearBackground = () => {
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, width, height);
@@ -188,22 +197,24 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       };
       const collisionDetection = () => {
         let remaining = 0;
-        bricks.current.forEach(col => col.forEach(b => {
-          if (b.status === 1) {
-            remaining++;
-            if (
-              ballX.current > b.x &&
-              ballX.current < b.x + brickWidth &&
-              ballY.current > b.y &&
-              ballY.current < b.y + brickHeight
-            ) {
-              dy.current = -dy.current;
-              b.status = 0;
-              score.current += 10;
-              onUpdateScore(score.current);
+        bricks.current.forEach(col =>
+          col.forEach(b => {
+            if (b.status === 1) {
+              remaining++;
+              if (
+                ballX.current > b.x &&
+                ballX.current < b.x + brickWidth &&
+                ballY.current > b.y &&
+                ballY.current < b.y + brickHeight
+              ) {
+                dy.current = -dy.current;
+                b.status = 0;
+                score.current += 10;
+                onUpdateScore(score.current);
+              }
             }
-          }
-        }));
+          })
+        );
         if (remaining === 0) {
           level.current++;
           dx.current *= 1.2;
@@ -213,7 +224,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         }
       };
 
-      // Main draw loop
+      // ─── メインループ ─────────────────────────────────────────────
       function draw() {
         clearBackground();
         drawBricks();
@@ -221,21 +232,31 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         drawBall();
 
         if (gameActive && !gameOver.current) {
-          // Move paddle
+          // パドル移動
           if (leftPressed.value) paddleX.current = Math.max(0, paddleX.current - 7);
-          if (rightPressed.value) paddleX.current = Math.min(width - paddleWidth, paddleX.current + 7);
+          if (rightPressed.value)
+            paddleX.current = Math.min(width - paddleWidth, paddleX.current + 7);
 
           collisionDetection();
 
-          // Wall collision
-          if (ballX.current + dx.current > width - ballRadius || ballX.current + dx.current < ballRadius)
+          // 壁衝突
+          if (
+            ballX.current + dx.current > width - ballRadius ||
+            ballX.current + dx.current < ballRadius
+          ) {
             dx.current = -dx.current;
-          if (ballY.current + dy.current < ballRadius) dy.current = -dy.current;
-          else if (ballY.current + dy.current > height - ballRadius) {
-            // Paddle collision or lost ball
-            if (ballX.current > paddleX.current && ballX.current < paddleX.current + paddleWidth) {
+          }
+          if (ballY.current + dy.current < ballRadius) {
+            dy.current = -dy.current;
+          } else if (ballY.current + dy.current > height - ballRadius) {
+            // パドルと当たったか
+            if (
+              ballX.current > paddleX.current &&
+              ballX.current < paddleX.current + paddleWidth
+            ) {
               dy.current = -dy.current;
             } else {
+              // ボールロスト
               lives.current--;
               onUpdateLives(lives.current);
               onLostBall(lives.current);
@@ -247,7 +268,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
             }
           }
 
-          // Move ball
+          // ボール移動
           ballX.current += dx.current;
           ballY.current += dy.current;
         }
@@ -255,25 +276,37 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         requestAnimationFrame(draw);
       }
 
-      // Event registration & start loop
+      // ─── イベント登録 & ループ開始 ───────────────────────────────
       window.addEventListener('keydown', keyDownHandler);
       window.addEventListener('keyup', keyUpHandler);
       if (enableMouse) {
-        canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
-        canvas.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        canvas.addEventListener('touchstart', touchStartHandler, {
+          passive: false,
+        });
+        canvas.addEventListener('touchmove', touchMoveHandler, {
+          passive: false,
+        });
         canvas.addEventListener('touchend', touchEndHandler);
       }
-
       draw();
 
-      // Cleanup
+      // ─── クリーンアップ ─────────────────────────────────────────
       return () => {
         window.removeEventListener('keydown', keyDownHandler);
         window.removeEventListener('keyup', keyUpHandler);
         if (enableMouse) {
-          canvas.removeEventListener('touchstart', touchStartHandler as EventListener);
-          canvas.removeEventListener('touchmove', touchMoveHandler as EventListener);
-          canvas.removeEventListener('touchend', touchEndHandler as EventListener);
+          canvas.removeEventListener(
+            'touchstart',
+            touchStartHandler as EventListener
+          );
+          canvas.removeEventListener(
+            'touchmove',
+            touchMoveHandler as EventListener
+          );
+          canvas.removeEventListener(
+            'touchend',
+            touchEndHandler as EventListener
+          );
         }
       };
     }, [gameActive, paddleWidth]);
@@ -290,5 +323,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     );
   }
 );
+
+GameCanvas.displayName = 'GameCanvas';
 
 export default GameCanvas;
