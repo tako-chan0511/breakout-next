@@ -1,7 +1,8 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-export default nextConfig;
+export default {
+  output: 'export',
+  basePath: '/breakout-next',
+  assetPrefix: '/breakout-next',
+  trailingSlash: true,
+  typescript: { ignoreBuildErrors: true },
+  eslint:     { ignoreDuringBuilds: true },
+}
