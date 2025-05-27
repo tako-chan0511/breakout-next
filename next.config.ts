@@ -1,12 +1,7 @@
 import type { NextConfig } from "next";
-const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  basePath:   isProd ? '/breakout-next' : '',
-  assetPrefix:isProd ? '/breakout-next/' : '',
-  typescript:{ ignoreBuildErrors: true },
-  eslint:    { ignoreDuringBuilds: true },
+  /* config options here */
 };
 
 export default nextConfig;
