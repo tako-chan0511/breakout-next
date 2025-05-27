@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
-    "deploy": "npm run build && gh-pages -d out",
+    "build": "next build ",
+    "predeploy": "powershell -Command \"New-Item -Path out/.nojekyll -ItemType File -Force\"",
+    "deploy":    "npm run build && gh-pages -d out  --dotfiles",
     "start": "next start",
     "lint": "next lint"
   },
