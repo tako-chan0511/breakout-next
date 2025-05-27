@@ -1,7 +1,9 @@
 /* HUD.module.css */
 .hudContainer {
   display: flex;
-  justify-content: space-around;
+  justify-content: center; /* 横方向に中央寄せ */
+  align-items: center;     /* 垂直方向に中央揃え */
+  gap: 2rem;               /* 各アイテム間の余白 */
   padding: 0.5rem;
   background: rgba(0, 0, 0, 0.4);
   color: #fff;
@@ -13,12 +15,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 4rem;         /* アイテム幅の最小値 */
 }
 
 .label {
   font-weight: bold;
+  margin-bottom: 0.25rem;
 }
 
 .value {
-  margin-top: 0.25rem;
+  font-size: 1.25rem;      /* 数字を少し大きめに */
 }

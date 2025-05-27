@@ -11,6 +11,9 @@ const Home: NextPage = () => {
   const [paddleWidth, setPaddleWidth] = useState(75)
   const [ballColor, setBallColor]     = useState('#FF0000')
   const [paddleColor, setPaddleColor] = useState('#00FF00')
+    // ↓ ここに追加 ↓
+  const [brickColors]     = useState<string[]>(['#F00', '#0F0', '#00F', '#FF0'])
+  const [backgroundColor] = useState<string>('#000000')
 
   // ゲーム制御フラグ
   const [started, setStarted]         = useState(false)
@@ -57,7 +60,7 @@ const Home: NextPage = () => {
 
   return (
     <div style={{ textAlign: 'center', padding: '1rem' }}>
-      <h1>Next.js版 Breakout</h1>
+      <h1>Next.js版 ブロック崩し</h1>
 
       {/* 設定パネル */}
       <SettingsPanel
@@ -80,6 +83,8 @@ const Home: NextPage = () => {
         paddleWidth={paddleWidth}
         ballColor={ballColor}
         paddleColor={paddleColor}
+        brickColors={brickColors}          // 追加
+        backgroundColor={backgroundColor}  // 追加
         enableMouse
         gameActive={started}
         onUpdateScore={setScore}
