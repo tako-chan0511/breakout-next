@@ -4,6 +4,9 @@ width: 100%;
 max-width: 480px;
 margin: 0 auto;
 padding-bottom: 80px;
+/* ← ここを追加 */
+touch-action: pan-x;         /* 水平方向のジェスチャのみ許可 */
+overscroll-behavior-y: none; /* 垂直方向のバウンス／スクロールを抑制 */
 }
 
 .gameCanvas {
