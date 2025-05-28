@@ -73,7 +73,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     const brickOffsetLeft = 30;
     const bricks = useRef<{ x: number; y: number; status: number }[][]>([]);
 
-    // 初回マウントでブロック配置を準備
+    // 初期ブロック配置
     useEffect(() => {
       bricks.current = Array.from({ length: brickColumnCount }, () =>
         Array.from({ length: brickRowCount }, () => ({
@@ -84,7 +84,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       );
     }, []);
 
-    // 親からリセットメソッド公開
+    // 親からリセット公開
     useImperativeHandle(ref, () => ({
       resetBall() {
         ballX.current = width / 2;
@@ -95,7 +95,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       },
     }));
 
-    // ブロック描画ヘルパー
+    // 描画ヘルパー
     const drawBricks = (ctx: CanvasRenderingContext2D) => {
       bricks.current.forEach((col, c) =>
         col.forEach((b, r) => {
@@ -113,7 +113,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       );
     };
 
-    // 初期一回描画: 背景＋ブロック＋パドル＋ボール
+    // 初回一回描画
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -140,7 +140,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       ctx.closePath();
     }, [backgroundColor, brickColors, paddleColor, paddleWidth, ballColor]);
 
-    // メインゲームループ
+    // メインループ
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -343,6 +343,12 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
           height={height}
           className={styles.gameCanvas}
         />
+        {/* 下部スワイプエリア */}
+        {enableMouse && (
+          <div className={styles.swipeArea}>
+            {/* タッチイベントは上の canvas にバブリングします */}
+          </div>
+        )}
       </div>
     );
   }
