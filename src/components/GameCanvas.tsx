@@ -46,27 +46,24 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     },
     ref
   ) => {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // ─── Canvas 定数 ─────────────────────────────
     const width = 480;
     const height = 320;
     const ballRadius = 10;
     const paddleHeight = 10;
 
-    // ─── ゲームステート（ref）───────────────────
     const ballX = useRef(width / 2);
     const ballY = useRef(height - paddleHeight - ballRadius);
     const dx = useRef(2);
     const dy = useRef(-2);
     const paddleX = useRef((width - paddleWidth) / 2);
-    const lives = useRef(3);
+    const livesRef = useRef(3);
     const paused = useRef(false);
-    const gameOver = useRef(false);
-    const score = useRef(0);
-    const level = useRef(1);
+    const gameOverRef = useRef(false);
+    const scoreRef = useRef(0);
+    const levelRef = useRef(1);
 
-    // ─── ブロック設定 ────────────────────────────
     const brickRowCount = 3;
     const brickColumnCount = 5;
     const brickWidth = 75;
@@ -76,18 +73,18 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     const brickOffsetLeft = 30;
     const bricks = useRef<{ x: number; y: number; status: number }[][]>([]);
 
-    // 初期ブロック配置
+    // 初回マウントでブロック配置を準備
     useEffect(() => {
-      bricks.current = [];
-      for (let c = 0; c < brickColumnCount; c++) {
-        bricks.current[c] = [];
-        for (let r = 0; r < brickRowCount; r++) {
-          bricks.current[c][r] = { x: 0, y: 0, status: 1 };
-        }
-      }
+      bricks.current = Array.from({ length: brickColumnCount }, () =>
+        Array.from({ length: brickRowCount }, () => ({
+          x: 0,
+          y: 0,
+          status: 1,
+        }))
+      );
     }, []);
 
-    // resetBall を親から呼べるように公開
+    // 親からリセットメソッド公開
     useImperativeHandle(ref, () => ({
       resetBall() {
         ballX.current = width / 2;
@@ -98,20 +95,15 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       },
     }));
 
-    // ─── 初期マウント時にも一度だけ初期描画 ─────────────────────
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d")!;
-      // 画面クリア
-      ctx.fillStyle = backgroundColor;
-      ctx.fillRect(0, 0, width, height);
-      // ブロック描画
+    // ブロック描画ヘルパー
+    const drawBricks = (ctx: CanvasRenderingContext2D) => {
       bricks.current.forEach((col, c) =>
         col.forEach((b, r) => {
           if (b.status !== 1) return;
           const x = c * (brickWidth + brickPadding) + brickOffsetLeft;
           const y = r * (brickHeight + brickPadding) + brickOffsetTop;
+          b.x = x;
+          b.y = y;
           ctx.beginPath();
           ctx.fillStyle = brickColors[r % brickColors.length];
           ctx.rect(x, y, brickWidth, brickHeight);
@@ -119,44 +111,65 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
           ctx.closePath();
         })
       );
-    }, []); // 空 deps でマウント時のみ
+    };
 
-    // ─── ゲーム開始 & ループ ─────────────────────────────────
+    // 初期一回描画: 背景＋ブロック＋パドル＋ボール
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, width, height);
+      drawBricks(ctx);
+      // パドル
+      ctx.beginPath();
+      ctx.rect(
+        paddleX.current,
+        height - paddleHeight,
+        paddleWidth,
+        paddleHeight
+      );
+      ctx.fillStyle = paddleColor;
+      ctx.fill();
+      ctx.closePath();
+      // ボール
+      ctx.beginPath();
+      ctx.arc(ballX.current, ballY.current, ballRadius, 0, Math.PI * 2);
+      ctx.fillStyle = ballColor;
+      ctx.fill();
+      ctx.closePath();
+    }, [backgroundColor, brickColors, paddleColor, paddleWidth, ballColor]);
+
+    // メインゲームループ
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // ゲーム初期化
       function initGame() {
         ballX.current = width / 2;
         ballY.current = height - paddleHeight - ballRadius;
         dx.current = 2;
         dy.current = -2;
         paddleX.current = (width - paddleWidth) / 2;
-        lives.current = 3;
-        score.current = 0;
-        level.current = 1;
+        livesRef.current = 3;
+        scoreRef.current = 0;
+        levelRef.current = 1;
         paused.current = false;
-        gameOver.current = false;
-        bricks.current.forEach((col) => col.forEach((b) => (b.status = 1)));
+        gameOverRef.current = false;
+        bricks.current.forEach(col => col.forEach(b => (b.status = 1)));
         onUpdateScore(0);
         onUpdateLives(3);
         onUpdateLevel(1);
       }
-
-      if (!gameActive) {
-        // ゲームアクティブでないときはループしない
-        return;
-      }
+      if (!gameActive) return;
       initGame();
 
-      // ─── 入力管理 ─────────────────────────────
       const leftPressed = { value: false };
       const rightPressed = { value: false };
       const keyDownHandler = (e: KeyboardEvent) => {
-        if (!gameActive || gameOver.current || paused.current) return;
+        if (!gameActive || gameOverRef.current || paused.current) return;
         if (e.key === "ArrowLeft") leftPressed.value = true;
         if (e.key === "ArrowRight") rightPressed.value = true;
       };
@@ -165,15 +178,16 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         if (e.key === "ArrowRight") rightPressed.value = false;
       };
 
+      // タッチ用
       let lastTouchX: number | null = null;
-      const touchStartHandler = (e: TouchEvent) => {
-        if (!gameActive || gameOver.current || paused.current) return;
+      const tStart = (e: TouchEvent) => {
+        if (!gameActive || gameOverRef.current || paused.current) return;
         lastTouchX = e.touches[0].clientX;
       };
-      const touchMoveHandler = (e: TouchEvent) => {
+      const tMove = (e: TouchEvent) => {
         if (
           !gameActive ||
-          gameOver.current ||
+          gameOverRef.current ||
           paused.current ||
           lastTouchX === null
         )
@@ -187,54 +201,14 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         );
         lastTouchX = tx;
       };
-      const touchEndHandler = () => {
+      const tEnd = () => {
         lastTouchX = null;
       };
 
-      // ─── 描画ヘルパー ─────────────────────────
-      const clearBackground = () => {
-        ctx.fillStyle = backgroundColor;
-        ctx.fillRect(0, 0, width, height);
-      };
-      const drawBricks = () => {
-        bricks.current.forEach((col, c) =>
-          col.forEach((b, r) => {
-            if (b.status !== 1) return;
-            const x = c * (brickWidth + brickPadding) + brickOffsetLeft;
-            const y = r * (brickHeight + brickPadding) + brickOffsetTop;
-            b.x = x;
-            b.y = y;
-            ctx.beginPath();
-            ctx.fillStyle = brickColors[r % brickColors.length];
-            ctx.rect(x, y, brickWidth, brickHeight);
-            ctx.fill();
-            ctx.closePath();
-          })
-        );
-      };
-      const drawBall = () => {
-        ctx.beginPath();
-        ctx.arc(ballX.current, ballY.current, ballRadius, 0, Math.PI * 2);
-        ctx.fillStyle = ballColor;
-        ctx.fill();
-        ctx.closePath();
-      };
-      const drawPaddle = () => {
-        ctx.beginPath();
-        ctx.rect(
-          paddleX.current,
-          height - paddleHeight,
-          paddleWidth,
-          paddleHeight
-        );
-        ctx.fillStyle = paddleColor;
-        ctx.fill();
-        ctx.closePath();
-      };
       const collisionDetection = () => {
         let remaining = 0;
-        bricks.current.forEach((col) =>
-          col.forEach((b) => {
+        bricks.current.forEach(col =>
+          col.forEach(b => {
             if (b.status === 1) {
               remaining++;
               if (
@@ -245,30 +219,45 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
               ) {
                 dy.current = -dy.current;
                 b.status = 0;
-                score.current += 10;
-                onUpdateScore(score.current);
+                scoreRef.current += 10;
+                onUpdateScore(scoreRef.current);
               }
             }
           })
         );
         if (remaining === 0) {
-          level.current++;
+          levelRef.current++;
           dx.current *= 1.2;
           dy.current *= 1.2;
-          bricks.current.forEach((col) => col.forEach((b) => (b.status = 1)));
-          onUpdateLevel(level.current);
+          bricks.current.forEach(col => col.forEach(b => (b.status = 1)));
+          onUpdateLevel(levelRef.current);
         }
       };
 
-      // ─── メインループ ─────────────────────────
-      function draw() {
-        clearBackground();
-        drawBricks();
-        drawPaddle();
-        drawBall();
+      function loop() {
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(0, 0, width, height);
+        drawBricks(ctx);
 
-        if (gameActive && !gameOver.current && !paused.current) {
-          // パドル移動
+        // パドル
+        ctx.beginPath();
+        ctx.rect(
+          paddleX.current,
+          height - paddleHeight,
+          paddleWidth,
+          paddleHeight
+        );
+        ctx.fillStyle = paddleColor;
+        ctx.fill();
+        ctx.closePath();
+        // ボール
+        ctx.beginPath();
+        ctx.arc(ballX.current, ballY.current, ballRadius, 0, Math.PI * 2);
+        ctx.fillStyle = ballColor;
+        ctx.fill();
+        ctx.closePath();
+
+        if (gameActive && !gameOverRef.current && !paused.current) {
           if (leftPressed.value)
             paddleX.current = Math.max(0, paddleX.current - 7);
           if (rightPressed.value)
@@ -279,90 +268,72 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
 
           collisionDetection();
 
-          // 壁との当たり判定
+          // 壁バウンス
           if (
             ballX.current + dx.current > width - ballRadius ||
             ballX.current + dx.current < ballRadius
-          ) {
+          )
             dx.current = -dx.current;
-          }
-          if (ballY.current + dy.current < ballRadius) {
-            dy.current = -dy.current;
-          } else if (ballY.current + dy.current > height - ballRadius) {
-            // パドルとの当たり判定
+          if (ballY.current + dy.current < ballRadius) dy.current = -dy.current;
+          else if (ballY.current + dy.current > height - ballRadius) {
             if (
               ballX.current > paddleX.current &&
               ballX.current < paddleX.current + paddleWidth
             ) {
               dy.current = -dy.current;
             } else {
-              // ボールロスト
-              lives.current--;
-              onUpdateLives(lives.current);
-
-              if (lives.current > 0) {
-                // 残りライフがあれば「ロスト」ポップアップ
+              livesRef.current--;
+              onUpdateLives(livesRef.current);
+              if (livesRef.current > 0) {
                 paused.current = true;
-                onLostBall(lives.current);
+                onLostBall(livesRef.current);
               } else {
-                // ライフ0 → ゲームオーバー
                 paused.current = true;
-                gameOver.current = true;
+                gameOverRef.current = true;
                 onGameOver({
-                  score: score.current,
-                  lives: lives.current,
-                  level: level.current,
+                  score: scoreRef.current,
+                  lives: livesRef.current,
+                  level: levelRef.current,
                 });
-                return; // これでループを完全停止
+                return;
               }
             }
           }
 
-          // ボールの移動
           ballX.current += dx.current;
           ballY.current += dy.current;
-        } else if (gameOver.current) {
-          return; // 完全停止
         }
 
-        // 次フレームへ
-        if (!gameOver.current) requestAnimationFrame(draw);
+        if (!gameOverRef.current) requestAnimationFrame(loop);
       }
 
-      // イベント登録＆ループ開始
       window.addEventListener("keydown", keyDownHandler);
       window.addEventListener("keyup", keyUpHandler);
       if (enableMouse) {
-        canvas.addEventListener("touchstart", touchStartHandler, {
-          passive: false,
-        });
-        canvas.addEventListener("touchmove", touchMoveHandler, {
-          passive: false,
-        });
-        canvas.addEventListener("touchend", touchEndHandler);
+        canvas.addEventListener("touchstart", tStart, { passive: false });
+        canvas.addEventListener("touchmove", tMove, { passive: false });
+        canvas.addEventListener("touchend", tEnd);
       }
-      draw();
 
-      // クリーンアップ
+      loop();
+
       return () => {
         window.removeEventListener("keydown", keyDownHandler);
         window.removeEventListener("keyup", keyUpHandler);
         if (enableMouse) {
-          canvas.removeEventListener(
-            "touchstart",
-            touchStartHandler as EventListener
-          );
-          canvas.removeEventListener(
-            "touchmove",
-            touchMoveHandler as EventListener
-          );
-          canvas.removeEventListener(
-            "touchend",
-            touchEndHandler as EventListener
-          );
+          canvas.removeEventListener("touchstart", tStart as any);
+          canvas.removeEventListener("touchmove", tMove as any);
+          canvas.removeEventListener("touchend", tEnd as any);
         }
       };
-    }, [gameActive, paddleWidth]);
+    }, [
+      gameActive,
+      paddleWidth,
+      backgroundColor,
+      brickColors,
+      paddleColor,
+      ballColor,
+    ]);
 
     return (
       <div className={styles.canvasWrapper}>
