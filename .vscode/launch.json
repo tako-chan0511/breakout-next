@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    
+    {
+      "name": "Launch Chrome against localhost",
+      "type": "pwa-chrome",                // 組み込みの Chrome デバッガ
+      "request": "launch",
+      "url": "http://localhost:3000",      // Next.js 開発サーバの URL
+      "webRoot": "${workspaceFolder}",     // ソースコードのルート
+      "sourceMaps": true,                  // ソースマップを有効化
+      "preLaunchTask": "npm: dev"          // 必要なら dev サーバ起動タスク
+    }
+  ]
+}

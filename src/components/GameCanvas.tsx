@@ -1,6 +1,11 @@
 // src/components/GameCanvas.tsx
 "use client";
-import React, { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import styles from "@/styles/GameCanvas.module.css";
 import type { GameCanvasHandle } from "./GameCanvasHandle";
 
@@ -16,7 +21,11 @@ export interface GameCanvasProps {
   onUpdateLives: (lives: number) => void;
   onUpdateLevel: (level: number) => void;
   onLostBall: (lives: number) => void;
-  onGameOver: (payload: { score: number; lives: number; level: number }) => void;
+  onGameOver: (payload: {
+    score: number;
+    lives: number;
+    level: number;
+  }) => void;
 }
 
 const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
@@ -112,7 +121,12 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         onUpdateLives(3);
         onUpdateLevel(1);
       }
-      initGame();
+      if (gameActive) {
+        initGame();
+      } else {
+        // ゲーム終了時は何もしない（state をリセットしない）
+        return;
+      }
 
       // 入力管理
       const leftPressed = { value: false };
@@ -230,9 +244,13 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
 
         if (gameActive && !gameOver.current && !paused.current) {
           // パドル移動
-          if (leftPressed.value) paddleX.current = Math.max(0, paddleX.current - 7);
+          if (leftPressed.value)
+            paddleX.current = Math.max(0, paddleX.current - 7);
           if (rightPressed.value)
-            paddleX.current = Math.min(width - paddleWidth, paddleX.current + 7);
+            paddleX.current = Math.min(
+              width - paddleWidth,
+              paddleX.current + 7
+            );
 
           collisionDetection();
 
