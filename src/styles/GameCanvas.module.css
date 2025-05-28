@@ -1,22 +1,26 @@
+/* src/styles/GameCanvas.module.css */
 .canvasWrapper {
-position: relative;
-width: 100%;
-max-width: 480px;
-margin: 0 auto;
-padding-bottom: 80px;
-/* ← ここを追加 */
-touch-action: pan-x;         /* 水平方向のジェスチャのみ許可 */
-overscroll-behavior-y: none; /* 垂直方向のバウンス／スクロールを抑制 */
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 80px;        /* スワイプエリア分の余白 */
+  touch-action: pan-x;         /* 水平方向のジェスチャのみ許可 */
+  overscroll-behavior-y: none; /* 垂直方向のバウンス／スクロールを抑制 */
 }
 
 .gameCanvas {
-display: block;
-width: 100%;
-height: auto;
-border: 2px solid #333;
-touch-action: none;
-background-color: #000;
+  display: block;
+  width: 100%;
+  /* ↓ これがないと、CSS表示高さが自動で決まってしまい、
+     論理座標と表示座標がズレて、当たり判定がずれます */
+  aspect-ratio: 480 / 320;
+  height: auto;
+  border: 2px solid #333;
+  touch-action: none;
+  background-color: #000;
 }
+
 /* 画面下 80px をスワイプエリアに */
 .swipeArea {
   position: absolute;
