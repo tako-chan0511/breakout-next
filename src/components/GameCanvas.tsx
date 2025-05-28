@@ -76,6 +76,34 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     const brickOffsetLeft = 30;
     const bricks = useRef<{ x: number; y: number; status: number }[][]>([]);
 
+    // 先頭付近で定義済みの useRef や定数の下あたりに追加
+    let lastTouchX: number | null = null;
+    function touchStartHandler(e: React.TouchEvent) {
+      if (!gameActive || gameOver.current) return;
+      lastTouchX = e.touches[0].clientX;
+    }
+    function touchMoveHandler(e: React.TouchEvent) {
+      if (
+        !gameActive ||
+        gameOver.current ||
+        lastTouchX === null ||
+        !canvasRef.current
+      )
+        return;
+      const tx = e.touches[0].clientX;
+      // キャンバスの実表示幅に対するスケールを計算
+      const scale = width / canvasRef.current.getBoundingClientRect().width;
+      const delta = (tx - lastTouchX) * scale;
+      paddleX.current = Math.max(
+        0,
+        Math.min(paddleX.current + delta, width - paddleWidth)
+      );
+      lastTouchX = tx;
+    }
+    function touchEndHandler() {
+      lastTouchX = null;
+    }
+
     // 初期ブロック配置
     useEffect(() => {
       bricks.current = [];
@@ -340,7 +368,12 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     }, [gameActive, paddleWidth]);
 
     return (
-      <div className={styles.canvasWrapper}>
+      <div
+        className={styles.canvasWrapper}
+        onTouchStart={touchStartHandler}
+        onTouchMove={touchMoveHandler}
+        onTouchEnd={touchEndHandler}
+      >
         <canvas
           ref={canvasRef}
           width={width}
