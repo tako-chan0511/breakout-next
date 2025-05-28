@@ -21,11 +21,7 @@ export interface GameCanvasProps {
   onUpdateLives: (lives: number) => void;
   onUpdateLevel: (level: number) => void;
   onLostBall: (lives: number) => void;
-  onGameOver: (payload: {
-    score: number;
-    lives: number;
-    level: number;
-  }) => void;
+  onGameOver: (payload: { score: number; lives: number; level: number }) => void;
 }
 
 const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
@@ -76,7 +72,35 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
     const brickOffsetLeft = 30;
     const bricks = useRef<{ x: number; y: number; status: number }[][]>([]);
 
-    // 初期ブロック配置
+    // ─── タッチ用ハンドラ & 最後のタッチX ───────────────────
+    let lastTouchX: number | null = null;
+    function touchStartHandler(e: React.TouchEvent) {
+      if (!gameActive || gameOver.current) return;
+      lastTouchX = e.touches[0].clientX;
+    }
+    function touchMoveHandler(e: React.TouchEvent) {
+      if (
+        !gameActive ||
+        gameOver.current ||
+        lastTouchX === null ||
+        !canvasRef.current
+      )
+        return;
+      const tx = e.touches[0].clientX;
+      const scale =
+        width / canvasRef.current.getBoundingClientRect().width;
+      const delta = (tx - lastTouchX) * scale;
+      paddleX.current = Math.max(
+        0,
+        Math.min(paddleX.current + delta, width - paddleWidth)
+      );
+      lastTouchX = tx;
+    }
+    function touchEndHandler() {
+      lastTouchX = null;
+    }
+
+    // ─── 初期ブロック配置 ─────────────────────────
     useEffect(() => {
       bricks.current = [];
       for (let c = 0; c < brickColumnCount; c++) {
@@ -87,7 +111,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       }
     }, []);
 
-    // resetBall を親から呼べるように公開
+    // ─── resetBall を親から呼べるように公開 ─────────────────
     useImperativeHandle(ref, () => ({
       resetBall() {
         ballX.current = width / 2;
@@ -98,30 +122,36 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
       },
     }));
 
-    // ─── 初期マウント時にも一度だけ初期描画 ─────────────────────
+    // ─── マウント時に一度だけ「初期画面描画」 ─────────────────
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d")!;
-      // 画面クリア
+      // 背景
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, width, height);
-      // ブロック描画
+      // ブロック
       bricks.current.forEach((col, c) =>
         col.forEach((b, r) => {
           if (b.status !== 1) return;
           const x = c * (brickWidth + brickPadding) + brickOffsetLeft;
           const y = r * (brickHeight + brickPadding) + brickOffsetTop;
-          ctx.beginPath();
           ctx.fillStyle = brickColors[r % brickColors.length];
-          ctx.rect(x, y, brickWidth, brickHeight);
-          ctx.fill();
-          ctx.closePath();
+          ctx.fillRect(x, y, brickWidth, brickHeight);
         })
       );
-    }, []); // 空 deps でマウント時のみ
+      // パドル
+      ctx.fillStyle = paddleColor;
+      ctx.fillRect(paddleX.current, height - paddleHeight, paddleWidth, paddleHeight);
+      // ボール
+      ctx.beginPath();
+      ctx.arc(ballX.current, ballY.current, ballRadius, 0, Math.PI * 2);
+      ctx.fillStyle = ballColor;
+      ctx.fill();
+      ctx.closePath();
+    }, []); // deps 空 = マウント時のみ
 
-    // ─── ゲーム開始 & ループ ─────────────────────────────────
+    // ─── ゲームループ & 入力管理 ──────────────────────────────
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -145,54 +175,42 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         onUpdateLives(3);
         onUpdateLevel(1);
       }
-
-      if (!gameActive) {
-        // ゲームアクティブでないときはループしない
-        return;
-      }
+      if (!gameActive) return;
       initGame();
 
-      // ─── 入力管理 ─────────────────────────────
+      // 入力
       const leftPressed = { value: false };
       const rightPressed = { value: false };
-      const keyDownHandler = (e: KeyboardEvent) => {
+      const keyDown = (e: KeyboardEvent) => {
         if (!gameActive || gameOver.current || paused.current) return;
         if (e.key === "ArrowLeft") leftPressed.value = true;
         if (e.key === "ArrowRight") rightPressed.value = true;
       };
-      const keyUpHandler = (e: KeyboardEvent) => {
+      const keyUp = (e: KeyboardEvent) => {
         if (e.key === "ArrowLeft") leftPressed.value = false;
         if (e.key === "ArrowRight") rightPressed.value = false;
       };
-
-      let lastTouchX: number | null = null;
-      const touchStartHandler = (e: TouchEvent) => {
+      const touchStart = (e: TouchEvent) => {
         if (!gameActive || gameOver.current || paused.current) return;
         lastTouchX = e.touches[0].clientX;
       };
-      const touchMoveHandler = (e: TouchEvent) => {
-        if (
-          !gameActive ||
-          gameOver.current ||
-          paused.current ||
-          lastTouchX === null
-        )
+      const touchMove = (e: TouchEvent) => {
+        if (!gameActive || gameOver.current || paused.current || lastTouchX === null)
           return;
         const tx = e.touches[0].clientX;
         const scale = width / canvas.getBoundingClientRect().width;
-        const delta = (tx - lastTouchX) * scale;
         paddleX.current = Math.max(
           0,
-          Math.min(paddleX.current + delta, width - paddleWidth)
+          Math.min(paddleX.current + (tx - lastTouchX) * scale, width - paddleWidth)
         );
         lastTouchX = tx;
       };
-      const touchEndHandler = () => {
+      const touchEnd = () => {
         lastTouchX = null;
       };
 
-      // ─── 描画ヘルパー ─────────────────────────
-      const clearBackground = () => {
+      // 描画ヘルパー
+      const clearBG = () => {
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, width, height);
       };
@@ -202,15 +220,14 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
             if (b.status !== 1) return;
             const x = c * (brickWidth + brickPadding) + brickOffsetLeft;
             const y = r * (brickHeight + brickPadding) + brickOffsetTop;
-            b.x = x;
-            b.y = y;
-            ctx.beginPath();
             ctx.fillStyle = brickColors[r % brickColors.length];
-            ctx.rect(x, y, brickWidth, brickHeight);
-            ctx.fill();
-            ctx.closePath();
+            ctx.fillRect(x, y, brickWidth, brickHeight);
           })
         );
+      };
+      const drawPaddle = () => {
+        ctx.fillStyle = paddleColor;
+        ctx.fillRect(paddleX.current, height - paddleHeight, paddleWidth, paddleHeight);
       };
       const drawBall = () => {
         ctx.beginPath();
@@ -219,24 +236,12 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         ctx.fill();
         ctx.closePath();
       };
-      const drawPaddle = () => {
-        ctx.beginPath();
-        ctx.rect(
-          paddleX.current,
-          height - paddleHeight,
-          paddleWidth,
-          paddleHeight
-        );
-        ctx.fillStyle = paddleColor;
-        ctx.fill();
-        ctx.closePath();
-      };
       const collisionDetection = () => {
-        let remaining = 0;
+        let rem = 0;
         bricks.current.forEach((col) =>
           col.forEach((b) => {
             if (b.status === 1) {
-              remaining++;
+              rem++;
               if (
                 ballX.current > b.x &&
                 ballX.current < b.x + brickWidth &&
@@ -251,7 +256,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
             }
           })
         );
-        if (remaining === 0) {
+        if (rem === 0) {
           level.current++;
           dx.current *= 1.2;
           dy.current *= 1.2;
@@ -260,15 +265,14 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
         }
       };
 
-      // ─── メインループ ─────────────────────────
+      // メインループ
       function draw() {
-        clearBackground();
+        clearBG();
         drawBricks();
         drawPaddle();
         drawBall();
 
         if (gameActive && !gameOver.current && !paused.current) {
-          // パドル移動
           if (leftPressed.value)
             paddleX.current = Math.max(0, paddleX.current - 7);
           if (rightPressed.value)
@@ -279,7 +283,7 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
 
           collisionDetection();
 
-          // 壁との当たり判定
+          // 壁
           if (
             ballX.current + dx.current > width - ballRadius ||
             ballX.current + dx.current < ballRadius
@@ -289,23 +293,18 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
           if (ballY.current + dy.current < ballRadius) {
             dy.current = -dy.current;
           } else if (ballY.current + dy.current > height - ballRadius) {
-            // パドルとの当たり判定
             if (
               ballX.current > paddleX.current &&
               ballX.current < paddleX.current + paddleWidth
             ) {
               dy.current = -dy.current;
             } else {
-              // ボールロスト
               lives.current--;
               onUpdateLives(lives.current);
-
               if (lives.current > 0) {
-                // 残りライフがあれば「ロスト」ポップアップ
                 paused.current = true;
                 onLostBall(lives.current);
               } else {
-                // ライフ0 → ゲームオーバー
                 paused.current = true;
                 gameOver.current = true;
                 onGameOver({
@@ -313,53 +312,41 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
                   lives: lives.current,
                   level: level.current,
                 });
-                return; // これでループを完全停止
+                return;
               }
             }
           }
 
-          // ボールの移動
+          // ボール移動
           ballX.current += dx.current;
           ballY.current += dy.current;
-        } else if (gameOver.current) {
-          return; // 完全停止
         }
-
-        // 次フレームへ
-        if (!gameOver.current) requestAnimationFrame(draw);
+        if (!gameOver.current) {
+          requestAnimationFrame(draw);
+        }
       }
 
-      // イベント登録＆ループ開始
-      window.addEventListener("keydown", keyDownHandler);
-      window.addEventListener("keyup", keyUpHandler);
+      // イベント登録
+      window.addEventListener("keydown", keyDown);
+      window.addEventListener("keyup", keyUp);
       if (enableMouse) {
-        canvas.addEventListener("touchstart", touchStartHandler, {
+        canvas.addEventListener("touchstart", touchStart, {
           passive: false,
         });
-        canvas.addEventListener("touchmove", touchMoveHandler, {
+        canvas.addEventListener("touchmove", touchMove, {
           passive: false,
         });
-        canvas.addEventListener("touchend", touchEndHandler);
+        canvas.addEventListener("touchend", touchEnd);
       }
       draw();
 
-      // クリーンアップ
       return () => {
-        window.removeEventListener("keydown", keyDownHandler);
-        window.removeEventListener("keyup", keyUpHandler);
+        window.removeEventListener("keydown", keyDown);
+        window.removeEventListener("keyup", keyUp);
         if (enableMouse) {
-          canvas.removeEventListener(
-            "touchstart",
-            touchStartHandler as EventListener
-          );
-          canvas.removeEventListener(
-            "touchmove",
-            touchMoveHandler as EventListener
-          );
-          canvas.removeEventListener(
-            "touchend",
-            touchEndHandler as EventListener
-          );
+          canvas.removeEventListener("touchstart", touchStart as any);
+          canvas.removeEventListener("touchmove", touchMove as any);
+          canvas.removeEventListener("touchend", touchEnd as any);
         }
       };
     }, [gameActive, paddleWidth]);
@@ -371,6 +358,12 @@ const GameCanvas = forwardRef<GameCanvasHandle, GameCanvasProps>(
           width={width}
           height={height}
           className={styles.gameCanvas}
+        />
+        <div
+          className={styles.swipeArea}
+          onTouchStart={touchStartHandler}
+          onTouchMove={touchMoveHandler}
+          onTouchEnd={touchEndHandler}
         />
       </div>
     );
