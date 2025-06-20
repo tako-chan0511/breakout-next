@@ -6,12 +6,13 @@
     "clean": "npx rimraf out",
     "dev": "next dev --turbopack",
     "build": "npm run clean && next build ",
-    "deploy":  "npm run build && echo > out/.nojekyll && gh-pages -d out --dotfiles",
+    "deploy": "npm run build && echo > out/.nojekyll && gh-pages -d out --dotfiles",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "next": "15.3.2",
+    "next-pwa": "^5.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
